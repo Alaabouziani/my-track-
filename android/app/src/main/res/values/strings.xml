@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">mon track</string>
+    <string name="title_activity_main">mon track</string>
+    <string name="package_name">com.mobileapp.alaae</string>
+    <string name="custom_url_scheme">com.mobileapp.alaae</string>
+</resources>

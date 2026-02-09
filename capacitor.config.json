@@ -1,0 +1,8 @@
+{
+  "appId": "com.mobileapp.alaae",
+  "appName": "mon track",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
