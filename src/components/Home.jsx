@@ -11,7 +11,8 @@ const Home = () => {
         profitToday: 0,
         totalProfit: 0,
         storesVisited: 0,
-        lowStock: 0
+        lowStock: 0,
+        expensesToday: 0
     })
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -47,6 +48,17 @@ const Home = () => {
             const collectedToday = todaySales.reduce((sum, s) => sum + Number(s.amount_paid || 0), 0)
             const totalCollected = allSales.reduce((sum, s) => sum + Number(s.amount_paid || 0), 0)
 
+            // 1.5 Fetch Expenses
+            const allExpenses = await db.expenses.toArray()
+            const todayExpenses = allExpenses.filter(e => e.date.startsWith(todayStr))
+
+            const expensesTodaySum = todayExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0)
+            const totalExpensesSum = allExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0)
+
+            // Net Calculations
+            const netCollectedToday = collectedToday - expensesTodaySum
+            const netTotalCollected = totalCollected - totalExpensesSum
+
             // 2. Profit Calculations
             const allSaleItems = await db.sale_items.toArray()
 
@@ -70,6 +82,13 @@ const Home = () => {
                 }
             })
 
+            // Adjust profit for expenses? Usually expenses reduce profit. 
+            // The user asked "deducted from the total amount collected".
+            // Expenses (Fuel/Repairs) definitely reduce profit.
+            // Let's subtract expenses from profit too.
+            const netProfitToday = profitToday - expensesTodaySum
+            const netTotalProfit = totalProfit - totalExpensesSum
+
             // 3. Stores Visited Today
             const uniqueStores = new Set(todaySales.map(s => s.client_id)).size
 
@@ -78,12 +97,13 @@ const Home = () => {
 
             setStats({
                 totalSalesToday: salesToday,
-                moneyCollectedToday: collectedToday,
-                totalMoneyCollected: totalCollected,
-                profitToday,
-                totalProfit,
+                moneyCollectedToday: netCollectedToday,
+                totalMoneyCollected: netTotalCollected,
+                profitToday: netProfitToday,
+                totalProfit: netTotalProfit,
                 storesVisited: uniqueStores,
-                lowStock: lowStockCount || 0
+                lowStock: lowStockCount || 0,
+                expensesToday: expensesTodaySum // Adding this for UI if needed
             })
         } catch (err) {
             console.error('Stats fetch error:', err)
@@ -121,6 +141,10 @@ const Home = () => {
                 <div className="card" style={{ background: 'var(--success)', color: 'white', marginBottom: 0 }}>
                     <p style={{ opacity: 0.9, fontSize: '0.9rem' }}>Profit Today</p>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{stats.profitToday.toFixed(2)} DA</h2>
+                </div>
+                <div className="card" style={{ background: 'var(--danger)', color: 'white', marginBottom: 0, gridColumn: 'span 2' }}>
+                    <p style={{ opacity: 0.9, fontSize: '0.9rem' }}>Expenses Today</p>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{stats.expensesToday.toFixed(2)} DA</h2>
                 </div>
             </div>
 

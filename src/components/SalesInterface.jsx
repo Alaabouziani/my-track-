@@ -17,6 +17,10 @@ const SalesInterface = () => {
     const [productSearch, setProductSearch] = useState('')
     const [loading, setLoading] = useState(false)
 
+    const [selectedProduct, setSelectedProduct] = useState(null)
+    const [qtyInput, setQtyInput] = useState({}) // Changed to object for inline inputs <productId, qty>
+    const [modalQtyInput, setModalQtyInput] = useState('') // Separate state for the modal input
+
     useEffect(() => {
         if (!isReady) {
             alert('CRITICAL: Database initialization failed.')
@@ -41,14 +45,42 @@ const SalesInterface = () => {
         p.name.toLowerCase().includes(productSearch.toLowerCase())
     )
 
-    const addToCart = (product) => {
+    const onProductClick = (product) => {
+        setSelectedProduct(product)
+        setModalQtyInput('')
+    }
+
+    const confirmAddToCart = (e) => {
+        e.preventDefault()
+        if (!selectedProduct) return
+
+        const qty = parseInt(modalQtyInput)
+        if (!qty || qty <= 0) {
+            alert('Please enter a valid quantity.')
+            return
+        }
+
+        if (qty > selectedProduct.quantity) {
+            alert(`Not enough stock! Max available: ${selectedProduct.quantity}`)
+            return
+        }
+
+        addToCart(selectedProduct, qty)
+        setSelectedProduct(null)
+        setModalQtyInput('')
+    }
+
+    const addToCart = (product, quantity) => {
         const existing = cart.find(item => item.id === product.id)
         if (existing) {
-            if (existing.sale_qty < product.quantity) {
-                setCart(cart.map(item => item.id === product.id ? { ...item, sale_qty: item.sale_qty + 1 } : item))
+            const newQty = existing.sale_qty + quantity
+            if (newQty <= product.quantity) {
+                setCart(cart.map(item => item.id === product.id ? { ...item, sale_qty: newQty } : item))
+            } else {
+                alert(`Cannot add more. Max stock reached.`)
             }
         } else {
-            setCart([...cart, { ...product, sale_qty: 1 }])
+            setCart([...cart, { ...product, sale_qty: quantity }])
         }
     }
 
@@ -65,8 +97,17 @@ const SalesInterface = () => {
 
     const totalAmount = cart.reduce((sum, item) => sum + (item.unit_price * item.sale_qty), 0)
 
-    const confirmSale = async () => {
+    const [showPaymentModal, setShowPaymentModal] = useState(false)
+
+    // ... (existing code)
+
+    const confirmSale = () => {
         if (!selectedClient || cart.length === 0) return
+        setShowPaymentModal(true)
+        setPaidAmount('') // Reset or keep previous? user likely wants it empty or maybe default to total
+    }
+
+    const finalizeSale = async () => {
         setLoading(true)
 
         try {
@@ -117,6 +158,7 @@ const SalesInterface = () => {
             setStoreSearch('')
             setProductSearch('')
             setShowReceipt(true)
+            setShowPaymentModal(false)
             fetchData() // Refresh inventory
         } catch (error) {
             console.error('Sale failed:', error)
@@ -134,14 +176,109 @@ const SalesInterface = () => {
         )
     }
 
+    const balance = totalAmount - (parseFloat(paidAmount) || 0)
+
     return (
         <div className="container">
+            {/* Payment Modal */}
+            {showPaymentModal && (
+                <div className="modal-overlay" style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
+                }}>
+                    <div className="card" style={{ width: '90%', maxWidth: '400px' }}>
+                        <div className="flex-between" style={{ marginBottom: '1rem' }}>
+                            <h3 style={{ margin: 0 }}>💰 Payment</h3>
+                            <button className="btn" onClick={() => setShowPaymentModal(false)}><X size={20} /></button>
+                        </div>
+
+                        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                            <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Total Amount</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{totalAmount.toFixed(2)} DA</div>
+                        </div>
+
+                        <div className="input-group">
+                            <label style={{ fontWeight: 'bold' }}>Amount Paid (DA)</label>
+                            <input
+                                type="number"
+                                placeholder="Enter amount..."
+                                value={paidAmount}
+                                onChange={(e) => setPaidAmount(e.target.value)}
+                                autoFocus
+                                style={{ padding: '1rem', fontSize: '1.2rem', textAlign: 'center' }}
+                            />
+                        </div>
+
+                        <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'var(--bg-color)', borderRadius: '8px' }}>
+                            <div className="flex-between">
+                                <span>Balance (Credit):</span>
+                                <span style={{ fontWeight: 'bold', color: balance > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                                    {balance.toFixed(2)} DA
+                                </span>
+                            </div>
+                        </div>
+
+                        <button
+                            className="btn btn-primary btn-large"
+                            style={{ marginTop: '1.5rem', width: '100%' }}
+                            disabled={loading}
+                            onClick={finalizeSale}
+                        >
+                            {loading ? 'Processing...' : <><CheckCircle size={24} /> Confirm Sale</>}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Product Quantity Modal (Existing) */}
+            {selectedProduct && (
+                <div className="modal-overlay" style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }} onClick={() => setSelectedProduct(null)}>
+                    <div className="card" style={{ width: '90%', maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+                        <h3>Add to Cart</h3>
+                        <p style={{ marginBottom: '1rem' }}>
+                            <strong>{selectedProduct.name}</strong><br />
+                            <span style={{ opacity: 0.7 }}>Available: {selectedProduct.quantity} | {selectedProduct.unit_price} DA</span>
+                        </p>
+                        <form onSubmit={confirmAddToCart}>
+                            <div className="input-group">
+                                <label>Quantity</label>
+                                <input
+                                    type="number"
+                                    value={modalQtyInput}
+                                    onChange={e => setModalQtyInput(e.target.value)}
+                                    autoFocus
+                                    min="1"
+                                    max={selectedProduct.quantity}
+                                    placeholder="Enter quantity"
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                <button type="button" className="btn" style={{ flex: 1, backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-color)' }} onClick={() => setSelectedProduct(null)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Add</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {showScanner && (
                 <Scanner
                     onClose={() => setShowScanner(false)}
                     onScan={(code) => {
                         console.log('Scanned:', code)
                         setShowScanner(false)
+                        // TODO: Handle scan to open modal
                     }}
                 />
             )}
@@ -184,18 +321,37 @@ const SalesInterface = () => {
 
                 <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'grid', gap: '0.5rem' }}>
                     {filteredProducts.map(p => (
-                        <button
+                        <div
                             key={p.id}
-                            className="btn"
-                            style={{ backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', justifyContent: 'flex-start' }}
-                            onClick={() => addToCart(p)}
+                            className="card"
+                            style={{
+                                padding: '0.75rem',
+                                marginBottom: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '0.75rem',
+                                border: '1px solid var(--border-color)',
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => onProductClick(p)}
                         >
-                            <div style={{ textAlign: 'left', flex: 1 }}>
-                                <div>{p.name}</div>
+                            <div>
+                                <div style={{ fontWeight: 'bold' }}>{p.name}</div>
                                 <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Stock: {p.quantity} | {p.unit_price} DA</div>
                             </div>
-                            <Plus size={18} />
-                        </button>
+
+                            <button
+                                className="btn btn-primary"
+                                style={{ padding: '0.5rem', borderRadius: '50%' }}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onProductClick(p)
+                                }}
+                            >
+                                <Plus size={20} />
+                            </button>
+                        </div>
                     ))}
                     {filteredProducts.length === 0 && (
                         <p style={{ textAlign: 'center', opacity: 0.5, padding: '1rem' }}>No matching products found.</p>
@@ -224,24 +380,13 @@ const SalesInterface = () => {
                         <strong style={{ color: 'var(--primary)' }}>{totalAmount.toFixed(2)} DA</strong>
                     </div>
 
-                    <div className="input-group" style={{ marginTop: '1.5rem' }}>
-                        <label style={{ fontWeight: 'bold' }}>Amount Paid (DA)</label>
-                        <input
-                            type="number"
-                            placeholder="How much did they pay?"
-                            value={paidAmount}
-                            onChange={(e) => setPaidAmount(e.target.value)}
-                            style={{ padding: '0.75rem', fontSize: '1.1rem' }}
-                        />
-                    </div>
-
                     <button
                         className="btn btn-primary btn-large"
                         style={{ marginTop: '1.5rem' }}
                         disabled={loading}
                         onClick={confirmSale}
                     >
-                        {loading ? 'Processing...' : <><CheckCircle size={24} /> Confirm Sale</>}
+                        <CheckCircle size={24} /> Proceed to Payment
                     </button>
                 </div>
             )}

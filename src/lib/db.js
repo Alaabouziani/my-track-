@@ -3,11 +3,12 @@ import Dexie from 'dexie';
 export const db = new Dexie('TruckSalesDB');
 
 // Define database schema
-db.version(1).stores({
+db.version(2).stores({
     products: '++id, name, quantity, unit_price, purchase_price',
     clients: '++id, name, address',
     sales: '++id, client_id, total_amount, amount_paid, created_at',
-    sale_items: '++id, sale_id, product_id, quantity, price_at_sale, purchase_price_at_sale'
+    sale_items: '++id, sale_id, product_id, quantity, price_at_sale, purchase_price_at_sale',
+    expenses: '++id, type, amount, description, date'
 });
 
 // Helper to check if DB is ready (replacing isConfigured)

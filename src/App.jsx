@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Package, Users, ShoppingCart, History as HistoryIcon, Sun, Moon, Settings as SettingsIcon } from 'lucide-react'
+import { LayoutDashboard, Package, Users, ShoppingCart, History as HistoryIcon, Sun, Moon, Settings as SettingsIcon, Menu } from 'lucide-react'
 import Home from './components/Home'
 import Inventory from './components/Inventory'
 import Clients from './components/Clients'
 import SalesInterface from './components/SalesInterface'
 import History from './components/History'
 import Settings from './components/Settings'
+import Expenses from './components/Expenses'
+import Sidebar from './components/Sidebar'
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -30,6 +32,8 @@ function App() {
     return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate)
   }, [])
 
+  const [showSidebar, setShowSidebar] = useState(false)
+
   if (showSettings) {
     return <Settings onBack={() => setShowSettings(false)} />
   }
@@ -37,8 +41,15 @@ function App() {
   return (
     <Router>
       <div className="app-wrapper">
+        <Sidebar isOpen={showSidebar} onClose={() => setShowSidebar(false)} onNavigate={(path) => window.location.href = path} />
+
         <header className="no-print" style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setShowSettings(true)}>📦 {appName}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button onClick={() => setShowSidebar(true)} className="btn" style={{ padding: '0.5rem' }}>
+              <Menu size={24} />
+            </button>
+            <h1 style={{ fontSize: '1.2rem', cursor: 'pointer', margin: 0 }} onClick={() => setShowSettings(true)}>📦 {appName}</h1>
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
               onClick={() => setShowSettings(true)}
@@ -65,6 +76,7 @@ function App() {
             <Route path="/clients" element={<Clients />} />
             <Route path="/sales" element={<SalesInterface />} />
             <Route path="/history" element={<History />} />
+            <Route path="/expenses" element={<Expenses />} />
           </Routes>
         </main>
 
