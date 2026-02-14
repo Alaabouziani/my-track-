@@ -11,6 +11,12 @@ const Inventory = () => {
     const [newProduct, setNewProduct] = useState({ name: '', quantity: 0, unit_price: 0, purchase_price: 0 })
     const [editingProduct, setEditingProduct] = useState(null)
     const [showReport, setShowReport] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
+
+    // Filter products based on search query
+    const filteredProducts = products.filter(product =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
 
     useEffect(() => {
         if (!isReady) {
@@ -211,17 +217,27 @@ const Inventory = () => {
                 </div>
             )}
 
+            <div className="card" style={{ marginBottom: '1rem' }}>
+                <input
+                    type="text"
+                    placeholder="🔍 Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ padding: '0.75rem', width: '100%' }}
+                />
+            </div>
+
             {loading ? (
                 <p>Loading inventory...</p>
             ) : (
                 <div className="inventory-list">
-                    {products.length === 0 ? (
+                    {filteredProducts.length === 0 ? (
                         <div className="card" style={{ textAlign: 'center', opacity: 0.6 }}>
                             <Package size={48} style={{ marginBottom: '1rem' }} />
-                            <p>No products in truck. Add some to get started!</p>
+                            <p>{products.length === 0 ? "No products in truck. Add some to get started!" : "No products match your search."}</p>
                         </div>
                     ) : (
-                        products.map(product => (
+                        filteredProducts.map(product => (
                             <div key={product.id} className="card">
                                 <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
                                     <h3 style={{ fontSize: '1.1rem' }}>{product.name}</h3>
